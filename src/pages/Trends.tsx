@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ReferenceArea,
+  ResponsiveContainer, ComposedChart, LineChart, Line, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts'
 import { useData } from '../hooks/useData'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -119,6 +119,7 @@ interface BandProps {
 
 function BandChart({ data, fuel, days }: BandProps) {
   const series = data[fuel] ?? []
+  const color = COLORS[fuel] ?? '#2563eb'
 
   const visible = useMemo(() => {
     if (days >= 9999) return series
@@ -129,46 +130,59 @@ function BandChart({ data, fuel, days }: BandProps) {
     return series.filter(r => new Date(r.date) >= since)
   }, [series, days])
 
+  // Stacked area approach: base (transparent) + lower outer + inner + upper outer
+  // Each key is a HEIGHT so they stack up to p95
   const chartData = visible.map(r => ({
     date: r.date,
+    base: r.p5,
+    lowerOuter: Math.max(0, r.p25 - r.p5),
+    inner: Math.max(0, r.p75 - r.p25),
+    upperOuter: Math.max(0, r.p95 - r.p75),
     avg: r.avg,
-    p5p95: [r.p5, r.p95] as [number, number],
-    p25p75: [r.p25, r.p75] as [number, number],
+    // keep originals for tooltip
+    _p5: r.p5, _p25: r.p25, _p75: r.p75, _p95: r.p95,
   }))
+
+  const allP5 = visible.map(r => r.p5).filter(Boolean)
+  const allP95 = visible.map(r => r.p95).filter(Boolean)
+  const domainMin = allP5.length ? Math.floor(Math.min(...allP5) - 2) : 'auto' as const
+  const domainMax = allP95.length ? Math.ceil(Math.max(...allP95) + 2) : 'auto' as const
 
   return (
     <ResponsiveContainer width="100%" height={360}>
-      <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+      <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-        <YAxis tickFormatter={v => `${v}¢`} domain={['auto', 'auto']} width={50} tick={{ fontSize: 11 }} />
+        <YAxis tickFormatter={v => `${v}¢`} domain={[domainMin, domainMax]} width={50} tick={{ fontSize: 11 }} />
         <Tooltip
-          formatter={(v: number | [number, number]) =>
-            Array.isArray(v) ? [`${v[0]}¢ – ${v[1]}¢`, ''] : [`${v.toFixed(1)}¢`, '']}
-          labelFormatter={formatDate}
+          content={({ active, label, payload }) => {
+            if (!active || !payload?.length) return null
+            const pt = chartData.find(d => d.date === label)
+            if (!pt) return null
+            return (
+              <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs space-y-0.5">
+                <p className="font-medium text-gray-600 mb-1">{formatDate(label as string)}</p>
+                <p style={{ color }} className="font-bold">Avg: {pt.avg.toFixed(1)}¢</p>
+                <p className="text-gray-500">Middle 50%: {pt._p25.toFixed(1)}¢ – {pt._p75.toFixed(1)}¢</p>
+                <p className="text-gray-400">Middle 90%: {pt._p5.toFixed(1)}¢ – {pt._p95.toFixed(1)}¢</p>
+              </div>
+            )
+          }}
         />
-        <Legend />
-        <ReferenceArea
-          y1={chartData[chartData.length - 1]?.p5p95[0]}
-          y2={chartData[chartData.length - 1]?.p5p95[1]}
-          fill={COLORS[fuel] ?? '#2563eb'}
-          fillOpacity={0.05}
+        <Legend
+          payload={[
+            { value: 'Average', type: 'line', color },
+            { value: 'Middle 50% of stations', type: 'rect', color: `${color}66` },
+            { value: 'Middle 90% of stations', type: 'rect', color: `${color}22` },
+          ]}
         />
-        <ReferenceArea
-          y1={chartData[chartData.length - 1]?.p25p75[0]}
-          y2={chartData[chartData.length - 1]?.p25p75[1]}
-          fill={COLORS[fuel] ?? '#2563eb'}
-          fillOpacity={0.1}
-        />
-        <Line
-          type="monotone"
-          dataKey="avg"
-          stroke={COLORS[fuel] ?? '#2563eb'}
-          dot={false}
-          strokeWidth={2.5}
-          name="Average"
-        />
-      </LineChart>
+        {/* Stacked bands — base is invisible, rest build up outer→inner→outer */}
+        <Area stackId="b" type="monotone" dataKey="base" fill="transparent" stroke="none" legendType="none" isAnimationActive={false} />
+        <Area stackId="b" type="monotone" dataKey="lowerOuter" fill={color} fillOpacity={0.12} stroke="none" legendType="none" isAnimationActive={false} />
+        <Area stackId="b" type="monotone" dataKey="inner" fill={color} fillOpacity={0.3} stroke="none" legendType="none" isAnimationActive={false} />
+        <Area stackId="b" type="monotone" dataKey="upperOuter" fill={color} fillOpacity={0.12} stroke="none" legendType="none" isAnimationActive={false} />
+        <Line type="monotone" dataKey="avg" stroke={color} dot={false} strokeWidth={2.5} name="Average" legendType="none" />
+      </ComposedChart>
     </ResponsiveContainer>
   )
 }
