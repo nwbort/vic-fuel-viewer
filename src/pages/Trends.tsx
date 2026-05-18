@@ -130,39 +130,44 @@ function BandChart({ data, fuel, days }: BandProps) {
     return series.filter(r => new Date(r.date) >= since)
   }, [series, days])
 
-  // Stacked area approach: base (transparent) + lower outer + inner + upper outer
-  // Each key is a HEIGHT so they stack up to p95
+  const allP5 = visible.map(r => r.p5).filter(v => v > 0)
+  const allP95 = visible.map(r => r.p95).filter(v => v > 0)
+  // Offset every value by domainMin so the stack starts at 0 visually,
+  // then add domainMin back in the tick formatter — avoids Recharts forcing y=0 on stacked charts.
+  const domainMin = allP5.length ? Math.floor(Math.min(...allP5) - 2) : 0
+  const domainMax = allP95.length ? Math.ceil(Math.max(...allP95) + 2) : 300
+  const adjustedMax = domainMax - domainMin
+
   const chartData = visible.map(r => ({
     date: r.date,
-    base: r.p5,
+    base: r.p5 - domainMin,
     lowerOuter: Math.max(0, r.p25 - r.p5),
     inner: Math.max(0, r.p75 - r.p25),
     upperOuter: Math.max(0, r.p95 - r.p75),
-    avg: r.avg,
-    // keep originals for tooltip
-    _p5: r.p5, _p25: r.p25, _p75: r.p75, _p95: r.p95,
+    avg: r.avg - domainMin,
+    _p5: r.p5, _p25: r.p25, _p75: r.p75, _p95: r.p95, _avg: r.avg,
   }))
-
-  const allP5 = visible.map(r => r.p5).filter(Boolean)
-  const allP95 = visible.map(r => r.p95).filter(Boolean)
-  const domainMin = allP5.length ? Math.floor(Math.min(...allP5) - 2) : 'auto' as const
-  const domainMax = allP95.length ? Math.ceil(Math.max(...allP95) + 2) : 'auto' as const
 
   return (
     <ResponsiveContainer width="100%" height={360}>
       <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
         <XAxis dataKey="date" tickFormatter={formatDate} tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-        <YAxis tickFormatter={v => `${v}¢`} domain={[domainMin, domainMax]} width={50} tick={{ fontSize: 11 }} />
+        <YAxis
+          tickFormatter={v => `${Math.round(v + domainMin)}¢`}
+          domain={[0, adjustedMax]}
+          width={50}
+          tick={{ fontSize: 11 }}
+        />
         <Tooltip
-          content={({ active, label, payload }) => {
-            if (!active || !payload?.length) return null
+          content={({ active, label }) => {
+            if (!active || !label) return null
             const pt = chartData.find(d => d.date === label)
             if (!pt) return null
             return (
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs space-y-0.5">
                 <p className="font-medium text-gray-600 mb-1">{formatDate(label as string)}</p>
-                <p style={{ color }} className="font-bold">Avg: {pt.avg.toFixed(1)}¢</p>
+                <p style={{ color }} className="font-bold">Avg: {pt._avg.toFixed(1)}¢</p>
                 <p className="text-gray-500">Middle 50%: {pt._p25.toFixed(1)}¢ – {pt._p75.toFixed(1)}¢</p>
                 <p className="text-gray-400">Middle 90%: {pt._p5.toFixed(1)}¢ – {pt._p95.toFixed(1)}¢</p>
               </div>
