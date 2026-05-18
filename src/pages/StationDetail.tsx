@@ -188,7 +188,8 @@ function HistoryChart({
 }
 
 export default function StationDetail() {
-  const { id } = useParams<{ id: string }>()
+  const { id: rawId } = useParams<{ id: string }>()
+  const id = rawId ? decodeURIComponent(rawId) : undefined
   const stationsData = useData<StationsLatestData>('/data/stations-latest.json')
   const trendsData = useData<TrendsData>('/data/trends.json')
   const historyData = useData<StationHistoryData>('/data/station-history.json')
@@ -309,7 +310,7 @@ export default function StationDetail() {
                 return (
                   <Link
                     key={s.id}
-                    to={`/station/${s.id}`}
+                    to={`/station/${encodeURIComponent(s.id)}`}
                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors"
                   >
                     <span
@@ -380,7 +381,7 @@ export default function StationDetail() {
                 >
                   <Popup>
                     <div className="text-sm">
-                      <Link to={`/station/${s.id}`} className="font-semibold text-blue-700 hover:underline">
+                      <Link to={`/station/${encodeURIComponent(s.id)}`} className="font-semibold text-blue-700 hover:underline">
                         {s.name}
                       </Link>
                       <p className="text-xs text-gray-500">{s.address}</p>

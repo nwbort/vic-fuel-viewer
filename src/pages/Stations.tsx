@@ -64,7 +64,7 @@ export default function Stations() {
             {results.map(s => (
               <Link
                 key={s.id}
-                to={`/station/${s.id}`}
+                to={`/station/${encodeURIComponent(s.id)}`}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="min-w-0 flex-1">

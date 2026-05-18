@@ -14,7 +14,7 @@ function StationRow({ rank, station }: { rank: number; station: RankedStation })
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
       <td className="py-3 pl-4 pr-2 text-sm font-medium text-gray-400 w-10">{rank}</td>
       <td className="py-3 px-2">
-        <Link to={`/station/${station.stationId}`} className="text-sm font-medium text-blue-700 hover:underline">{station.name}</Link>
+        <Link to={`/station/${encodeURIComponent(station.stationId)}`} className="text-sm font-medium text-blue-700 hover:underline">{station.name}</Link>
         <p className="text-xs text-gray-400 mt-0.5">{station.address}</p>
       </td>
       <td className="py-3 px-2 text-sm text-gray-600">{station.brand}</td>

@@ -134,7 +134,7 @@ function AreaPanel({ stations, fuel, trendsData, suburbTrendsData }: AreaPanelPr
               const price = s.prices[fuel]
               const color = priceColor(price, min, max)
               return (
-                <Link key={s.id} to={`/station/${s.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <Link key={s.id} to={`/station/${encodeURIComponent(s.id)}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
                   <span
                     className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: color }}

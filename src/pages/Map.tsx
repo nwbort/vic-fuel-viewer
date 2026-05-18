@@ -79,7 +79,7 @@ export default function Map() {
               >
                 <Popup>
                   <div className="text-sm">
-                    <Link to={`/station/${s.id}`} className="font-semibold text-blue-700 hover:underline">{s.name}</Link>
+                    <Link to={`/station/${encodeURIComponent(s.id)}`} className="font-semibold text-blue-700 hover:underline">{s.name}</Link>
                     <p className="text-gray-500 text-xs">{s.address}</p>
                     <p className="font-bold text-gray-900 mt-1">{price.toFixed(1)}¢ / L</p>
                     <p className="text-xs text-gray-400">{FUEL_LABELS[fuel] ?? fuel}</p>
