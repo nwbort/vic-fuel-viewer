@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback } from 'react'
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMapEvents } from 'react-leaflet'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ReferenceLine, Legend,
+  Tooltip, Legend,
 } from 'recharts'
 import { useData } from '../hooks/useData'
 import LoadingSpinner from '../components/LoadingSpinner'
 import FuelSelector from '../components/FuelSelector'
-import type { StationsLatestData, StationWithPrices, TrendsData } from '../types'
+import type { StationsLatestData, StationWithPrices, TrendsData, SuburbTrendsData } from '../types'
 
 const PRIMARY_FUELS = ['U91', 'P95', 'P98', 'DSL', 'E10']
 const RADIUS_KM = 5
@@ -49,19 +49,10 @@ interface AreaPanelProps {
   stations: (StationWithPrices & { distanceKm: number })[]
   fuel: string
   trendsData: TrendsData | null
+  suburbTrendsData: SuburbTrendsData | null
 }
 
-function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
-  const prices = stations.map(s => s.prices[fuel]).filter(Boolean)
-  const areaAvg = prices.length
-    ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 10) / 10
-    : null
-
-  const trendSeries = useMemo(() => {
-    if (!trendsData?.[fuel]) return []
-    return trendsData[fuel].slice(-30)
-  }, [trendsData, fuel])
-
+function AreaPanel({ stations, fuel, trendsData, suburbTrendsData }: AreaPanelProps) {
   const sorted = [...stations]
     .filter(s => s.prices[fuel] !== undefined)
     .sort((a, b) => a.prices[fuel] - b.prices[fuel])
@@ -69,6 +60,42 @@ function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
   const allPrices = sorted.map(s => s.prices[fuel])
   const min = allPrices[0] ?? 0
   const max = allPrices[allPrices.length - 1] ?? 0
+  const areaAvgToday = allPrices.length
+    ? Math.round((allPrices.reduce((a, b) => a + b, 0) / allPrices.length) * 10) / 10
+    : null
+
+  // Build combined trend chart data: statewide avg + area avg per date
+  const chartData = useMemo(() => {
+    if (!trendsData?.[fuel]) return []
+
+    const stateSeries = trendsData[fuel]
+
+    // Get unique suburbs of stations in the area
+    const areaSuburbs = [...new Set(stations.map(s => s.suburb).filter(Boolean))]
+
+    // For each date in the state series, compute area avg from suburb trends
+    return stateSeries.map(pt => {
+      let areaAvg: number | null = null
+
+      if (suburbTrendsData && areaSuburbs.length) {
+        const dateIdx = suburbTrendsData.dates.indexOf(pt.date)
+        if (dateIdx !== -1) {
+          let sum = 0
+          let count = 0
+          for (const suburb of areaSuburbs) {
+            const val = suburbTrendsData.suburbs[suburb]?.[fuel]?.[dateIdx]
+            if (val !== null && val !== undefined) {
+              sum += val
+              count++
+            }
+          }
+          if (count > 0) areaAvg = Math.round((sum / count) * 10) / 10
+        }
+      }
+
+      return { date: pt.date, state: pt.avg, area: areaAvg }
+    })
+  }, [trendsData, suburbTrendsData, fuel, stations])
 
   if (sorted.length === 0) {
     return (
@@ -85,7 +112,7 @@ function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
         {[
           { label: 'Stations', value: sorted.length.toString() },
           { label: 'Cheapest', value: `${min.toFixed(1)}¢` },
-          { label: 'Area avg', value: `${areaAvg?.toFixed(1) ?? '–'}¢` },
+          { label: 'Area avg today', value: `${areaAvgToday?.toFixed(1) ?? '–'}¢` },
           { label: 'Most exp.', value: `${max.toFixed(1)}¢` },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 text-center">
@@ -130,13 +157,13 @@ function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
         </div>
 
         {/* Trend chart */}
-        {trendSeries.length > 0 && areaAvg !== null && (
+        {chartData.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Statewide trend vs area today
+              Area trend vs statewide average
             </h3>
             <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={trendSeries} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis
                   dataKey="date"
@@ -155,25 +182,23 @@ function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
                   labelFormatter={formatDate}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <ReferenceLine
-                  y={areaAvg}
-                  stroke="#16a34a"
-                  strokeDasharray="5 3"
-                  strokeWidth={2}
-                  label={{
-                    value: `Area ${areaAvg.toFixed(1)}¢`,
-                    fill: '#16a34a',
-                    fontSize: 11,
-                    position: 'insideTopRight',
-                  }}
+                <Line
+                  type="monotone"
+                  dataKey="state"
+                  stroke="#94a3b8"
+                  dot={false}
+                  strokeWidth={1.5}
+                  name="State avg"
+                  strokeDasharray="4 2"
                 />
                 <Line
                   type="monotone"
-                  dataKey="avg"
+                  dataKey="area"
                   stroke="#2563eb"
                   dot={false}
-                  strokeWidth={2}
-                  name="State avg"
+                  strokeWidth={2.5}
+                  name="Area avg"
+                  connectNulls
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -187,6 +212,7 @@ function AreaPanel({ stations, fuel, trendsData }: AreaPanelProps) {
 export default function Areas() {
   const stationsData = useData<StationsLatestData>('/data/stations-latest.json')
   const trendsData = useData<TrendsData>('/data/trends.json')
+  const suburbTrendsData = useData<SuburbTrendsData>('/data/suburb-trends.json')
   const [fuel, setFuel] = useState('U91')
   const [centre, setCentre] = useState<{ lat: number; lng: number } | null>(null)
 
@@ -312,6 +338,7 @@ export default function Areas() {
           stations={nearbyStations}
           fuel={fuel}
           trendsData={trendsData.data}
+          suburbTrendsData={suburbTrendsData.data}
         />
       )}
     </div>

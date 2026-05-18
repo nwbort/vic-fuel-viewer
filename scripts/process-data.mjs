@@ -364,6 +364,57 @@ async function main() {
 
   await save('brands.json', { date: maxDate, brands: brandStats })
 
+  // --- Suburb historical trends (compact: shared date index + per-suburb price arrays) ---
+  console.log('  Computing suburb trends...')
+  const suburbTrendRows = await conn.all(`
+    SELECT
+      date,
+      station_id,
+      fuel_type,
+      ROUND(AVG(price), 1) AS avg_price
+    FROM prices
+    WHERE price IS NOT NULL AND price > 0 AND is_available = true
+      AND fuel_type IN ('${PRIMARY_FUELS.join("','")}')
+    GROUP BY date, station_id, fuel_type
+    ORDER BY date
+  `)
+
+  // Build date index
+  const dateSet = new Set()
+  for (const row of suburbTrendRows) dateSet.add(row.date)
+  const dates = [...dateSet].sort()
+  const dateIndex = Object.fromEntries(dates.map((d, i) => [d, i]))
+
+  // Group by suburb + fuelType -> array indexed by date position
+  const suburbTrendAccum = {}
+  for (const row of suburbTrendRows) {
+    const suburb = suburbLookup[row.station_id]
+    if (!suburb) continue
+    const key = `${suburb}|||${row.fuel_type}`
+    if (!suburbTrendAccum[key]) {
+      suburbTrendAccum[key] = {
+        suburb,
+        fuelType: row.fuel_type,
+        priceSums: new Array(dates.length).fill(0),
+        priceCounts: new Array(dates.length).fill(0),
+      }
+    }
+    const di = dateIndex[row.date]
+    suburbTrendAccum[key].priceSums[di] += row.avg_price
+    suburbTrendAccum[key].priceCounts[di] += 1
+  }
+
+  // Flatten to { suburb -> { fuelType -> [avg|null, ...] } }
+  const suburbTrends = {}
+  for (const { suburb, fuelType, priceSums, priceCounts } of Object.values(suburbTrendAccum)) {
+    if (!suburbTrends[suburb]) suburbTrends[suburb] = {}
+    suburbTrends[suburb][fuelType] = priceSums.map((s, i) =>
+      priceCounts[i] > 0 ? Math.round((s / priceCounts[i]) * 10) / 10 : null,
+    )
+  }
+
+  await save('suburb-trends.json', { dates, suburbs: suburbTrends })
+
   await conn.close()
   await db.close()
 
