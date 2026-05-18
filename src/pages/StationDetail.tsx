@@ -86,11 +86,13 @@ function HistoryChart({
   fuel,
   historyData,
   trendsData,
+  nearbyIds,
 }: {
   stationId: string
   fuel: string
   historyData: StationHistoryData | null
   trendsData: TrendsData | null
+  nearbyIds: string[]
 }) {
   const chartData = useMemo(() => {
     if (!historyData || !trendsData?.[fuel]) return []
@@ -100,13 +102,24 @@ function HistoryChart({
     return stateSeries.map((pt) => {
       const di = historyData.dates.indexOf(pt.date)
       const stationPrice = di !== -1 ? stationPrices?.[di] ?? null : null
-      return { date: pt.date, state: pt.avg, station: stationPrice }
+
+      let nearbyAvg: number | null = null
+      if (di !== -1 && nearbyIds.length > 0) {
+        const nearbyPrices = nearbyIds
+          .map(nid => historyData.stations[nid]?.[fuel]?.[di] ?? null)
+          .filter((v): v is number => v !== null)
+        if (nearbyPrices.length > 0)
+          nearbyAvg = Math.round((nearbyPrices.reduce((a, b) => a + b, 0) / nearbyPrices.length) * 10) / 10
+      }
+
+      return { date: pt.date, state: pt.avg, station: stationPrice, nearby: nearbyAvg }
     })
-  }, [historyData, trendsData, fuel, stationId])
+  }, [historyData, trendsData, fuel, stationId, nearbyIds])
 
   const stationPrices = chartData.map(d => d.station).filter((v): v is number => v !== null)
+  const nearbyPrices = chartData.map(d => d.nearby).filter((v): v is number => v !== null)
   const statePrices = chartData.map(d => d.state).filter(v => v > 0)
-  const allPrices = [...stationPrices, ...statePrices]
+  const allPrices = [...stationPrices, ...nearbyPrices, ...statePrices]
   const domainMin = allPrices.length ? Math.floor(Math.min(...allPrices) - 2) : 0
   const domainMax = allPrices.length ? Math.ceil(Math.max(...allPrices) + 2) : 300
   const adjustedMax = domainMax - domainMin
@@ -133,12 +146,8 @@ function HistoryChart({
               <div className="bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2 text-xs space-y-0.5">
                 <p className="font-medium text-gray-600 mb-1">{formatDate(label as string)}</p>
                 {pt.station !== null && <p className="text-blue-700 font-bold">This station: {pt.station.toFixed(1)}¢</p>}
-                {pt.state > 0 && <p className="text-gray-500">State avg: {pt.state.toFixed(1)}¢</p>}
-                {pt.station !== null && pt.state > 0 && (
-                  <p className={`font-medium ${pt.station < pt.state ? 'text-green-600' : 'text-red-500'}`}>
-                    {(pt.station - pt.state > 0 ? '+' : '')}{(pt.station - pt.state).toFixed(1)}¢
-                  </p>
-                )}
+                {pt.nearby !== null && <p className="text-orange-500 font-medium">5 km avg: {pt.nearby.toFixed(1)}¢</p>}
+                {pt.state > 0 && <p className="text-gray-400">State avg: {pt.state.toFixed(1)}¢</p>}
               </div>
             )
           }}
@@ -152,6 +161,16 @@ function HistoryChart({
           strokeWidth={1.5}
           strokeDasharray="4 2"
           name="State avg"
+          connectNulls
+        />
+        <Line
+          type="monotone"
+          dataKey={d => d.nearby !== null ? d.nearby - domainMin : null}
+          stroke="#f97316"
+          dot={false}
+          strokeWidth={1.5}
+          strokeDasharray="3 2"
+          name="5 km avg"
           connectNulls
         />
         <Line
@@ -268,6 +287,7 @@ export default function StationDetail() {
                 fuel={selectedFuel}
                 historyData={historyData.data}
                 trendsData={trendsData.data}
+                nearbyIds={nearby.map(s => s.id)}
               />
           }
         </div>
