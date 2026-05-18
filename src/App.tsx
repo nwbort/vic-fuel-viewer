@@ -8,6 +8,8 @@ const Map = lazy(() => import('./pages/Map'))
 const Leaderboard = lazy(() => import('./pages/Leaderboard'))
 const Areas = lazy(() => import('./pages/Areas'))
 const Brands = lazy(() => import('./pages/Brands'))
+const Stations = lazy(() => import('./pages/Stations'))
+const StationDetail = lazy(() => import('./pages/StationDetail'))
 
 function Nav() {
   const cls = ({ isActive }: { isActive: boolean }) =>
@@ -26,6 +28,7 @@ function Nav() {
         <NavLink to="/leaderboard" className={cls}>Cheapest</NavLink>
         <NavLink to="/areas" className={cls}>Areas</NavLink>
         <NavLink to="/brands" className={cls}>Brands</NavLink>
+        <NavLink to="/stations" className={cls}>Stations</NavLink>
       </div>
     </nav>
   )
@@ -44,6 +47,8 @@ export default function App() {
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/areas" element={<Areas />} />
             <Route path="/brands" element={<Brands />} />
+            <Route path="/stations" element={<Stations />} />
+            <Route path="/station/:id" element={<StationDetail />} />
           </Routes>
         </Suspense>
       </main>

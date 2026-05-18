@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { useData } from '../hooks/useData'
 import LoadingSpinner from '../components/LoadingSpinner'
 import FuelSelector from '../components/FuelSelector'
@@ -13,7 +14,7 @@ function StationRow({ rank, station }: { rank: number; station: RankedStation })
     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
       <td className="py-3 pl-4 pr-2 text-sm font-medium text-gray-400 w-10">{rank}</td>
       <td className="py-3 px-2">
-        <p className="text-sm font-medium text-gray-900">{station.name}</p>
+        <Link to={`/station/${station.stationId}`} className="text-sm font-medium text-blue-700 hover:underline">{station.name}</Link>
         <p className="text-xs text-gray-400 mt-0.5">{station.address}</p>
       </td>
       <td className="py-3 px-2 text-sm text-gray-600">{station.brand}</td>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router'
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
 import { useData } from '../hooks/useData'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -78,9 +79,9 @@ export default function Map() {
               >
                 <Popup>
                   <div className="text-sm">
-                    <p className="font-semibold">{s.name}</p>
+                    <Link to={`/station/${s.id}`} className="font-semibold text-blue-700 hover:underline">{s.name}</Link>
                     <p className="text-gray-500 text-xs">{s.address}</p>
-                    <p className="font-bold text-blue-700 mt-1">{price.toFixed(1)}¢ / L</p>
+                    <p className="font-bold text-gray-900 mt-1">{price.toFixed(1)}¢ / L</p>
                     <p className="text-xs text-gray-400">{FUEL_LABELS[fuel] ?? fuel}</p>
                   </div>
                 </Popup>

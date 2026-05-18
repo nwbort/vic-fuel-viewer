@@ -415,6 +415,31 @@ async function main() {
 
   await save('suburb-trends.json', { dates, suburbs: suburbTrends })
 
+  // --- Per-station price history (compact: shared dates array + per-station price arrays) ---
+  console.log('  Computing station history...')
+  const stationHistoryRows = await conn.all(`
+    SELECT date, station_id, fuel_type, ROUND(AVG(price), 1) AS price
+    FROM prices
+    WHERE price IS NOT NULL AND price > 0 AND price < 500 AND is_available = true
+      AND fuel_type IN ('${PRIMARY_FUELS.join("','")}')
+    GROUP BY date, station_id, fuel_type
+    ORDER BY station_id, fuel_type, date
+  `)
+
+  // { stationId -> { fuelType -> [price|null per date index] } }
+  const stationHistory = {}
+  for (const row of stationHistoryRows) {
+    const di = dateIndex[row.date]
+    if (di === undefined) continue
+    if (!stationHistory[row.station_id]) stationHistory[row.station_id] = {}
+    if (!stationHistory[row.station_id][row.fuel_type]) {
+      stationHistory[row.station_id][row.fuel_type] = new Array(dates.length).fill(null)
+    }
+    stationHistory[row.station_id][row.fuel_type][di] = row.price
+  }
+
+  await save('station-history.json', { dates, stations: stationHistory })
+
   await conn.close()
   await db.close()
 

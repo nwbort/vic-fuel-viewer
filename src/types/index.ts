@@ -113,3 +113,8 @@ export interface SuburbTrendsData {
   dates: string[]
   suburbs: Record<string, Record<string, (number | null)[]>>
 }
+
+export interface StationHistoryData {
+  dates: string[]
+  stations: Record<string, Record<string, (number | null)[]>>
+}

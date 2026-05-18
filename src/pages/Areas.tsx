@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from 'react'
+import { Link } from 'react-router'
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, useMapEvents } from 'react-leaflet'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -133,13 +134,13 @@ function AreaPanel({ stations, fuel, trendsData, suburbTrendsData }: AreaPanelPr
               const price = s.prices[fuel]
               const color = priceColor(price, min, max)
               return (
-                <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+                <Link key={s.id} to={`/station/${s.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
                   <span
                     className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: color }}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{s.name}</p>
+                    <p className="text-sm font-medium text-blue-700 truncate">{s.name}</p>
                     <p className="text-xs text-gray-400 truncate">
                       {s.suburb} · {s.distanceKm.toFixed(1)} km · {s.brand}
                     </p>
@@ -150,7 +151,7 @@ function AreaPanel({ stations, fuel, trendsData, suburbTrendsData }: AreaPanelPr
                   >
                     {price.toFixed(1)}¢
                   </span>
-                </div>
+                </Link>
               )
             })}
           </div>
