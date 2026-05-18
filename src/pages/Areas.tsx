@@ -252,7 +252,7 @@ export default function Areas() {
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4 items-center">
-        <FuelSelector fuels={PRIMARY_FUELS} selected={fuel} onChange={f => { setFuel(f); setCentre(null) }} />
+        <FuelSelector fuels={PRIMARY_FUELS} selected={fuel} onChange={setFuel} />
         {centre && (
           <button
             onClick={() => setCentre(null)}
